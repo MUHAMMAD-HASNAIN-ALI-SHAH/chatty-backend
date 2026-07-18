@@ -85,6 +85,8 @@ const getChats = async (req, res) => {
       .populate("secondUserId", "username profilePic")
       .sort({ updatedAt: -1 });
 
+    console.log("Fetched chats for userId:", userId, "Chats:", chats);
+
     res.status(200).json({ chats });
   } catch (error) {
     console.error("Error in fetching chats:", error);

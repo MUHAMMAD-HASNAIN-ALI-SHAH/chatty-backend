@@ -18,13 +18,17 @@ const chatSchema = new mongoose.Schema(
     },
     lastMessageTime: {
       type: Date,
-      default: "",
+      default: new Date(),
     },
     lastMessage: {
         type: String,
         default: "",
     },
-    unseenMessagesCount: {
+    firstUserUnseenMessagesCount: {
+      type: Number,
+      default: 0,
+    },
+    secondUserUnseenMessagesCount: {
       type: Number,
       default: 0,
     },
