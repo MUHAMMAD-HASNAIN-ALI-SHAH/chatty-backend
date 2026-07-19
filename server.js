@@ -9,11 +9,6 @@ const dotenv = require("dotenv");
 dotenv.config();
 const { app, server } = require("./config/socket.js");
 
-// add delay on every request for testing purposes
-app.use((req, res, next) => {
-    setTimeout(next, 2000); // 1 second delay
-});
-
 app.use(express.json({ limit: "50mb" }));
 app.use(
     session({

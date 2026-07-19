@@ -32,18 +32,21 @@ const addChat = async (req, res) => {
     }
 
     // Create chat
-    await Chat.create({
+    const chat = await Chat.create({
       firstUserId: userId,
       secondUserId: receiverId,
     });
 
+    const chatToSend = await Chat.findById(chat._id).populate("firstUserId", "-password -__v")
+      .populate("secondUserId", "-password -__v");
+
     // Emit to receiver if online
-    // const receiverSocketId = getReceiverSocketId(receiverId);
-    // if (receiverSocketId) {
-    //   io.to(receiverSocketId).emit("new-chat", {
-    //     chat: chatToSend,
-    //   });
-    // }
+    const receiverSocketId = getReceiverSocketId(receiverId);
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit("new-chat", {
+        chat: chatToSend,
+      });
+    }
 
     res
       .status(200)
