@@ -104,6 +104,17 @@ const markMessagesAsRead = async (req, res) => {
             chat.secondUserUnseenMessagesCount = 0;
         }
 
+        let receiverId;
+        if (chat.firstUserId.toString() === userId.toString()) {
+            receiverId = chat.secondUserId;
+        } else if (chat.secondUserId.toString() === userId.toString()) {
+            receiverId = chat.firstUserId;
+        }
+
+        await Message.updateMany({ chatId, isRead: false }, { $set: { isRead: true } });
+
+        io.to(getReceiverSocketId(receiverId)).emit("messagesRead", { chatId });
+
         await chat.save();
 
         res.status(200).json({ chatId: chat._id });
