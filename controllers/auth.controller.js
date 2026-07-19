@@ -4,13 +4,29 @@ const cloudinary = require("../config/cloudinary.js");
 
 const signup = async (req, res) => {
   try {
-    const { username, email, password } = req.body;
+    let { username, email, password } = req.body;
+
+    username = username.toLowerCase();
+
+    const usernameRegex = /^[a-z][a-z0-9]{2,9}$/;
+
+    if (!usernameRegex.test(username)) {
+      return res.status(400).json({
+        message:
+          "Username must start with a letter, contain only letters and numbers, and be 3-10 characters long.",
+      });
+    }
 
     const checkUsername = await User.findOne({ username });
     const checkEmail = await User.findOne({ email });
 
-    if (checkUsername) return res.status(400).json({ message: "Username already exists" });
-    if (checkEmail) return res.status(400).json({ message: "Email already exists" });
+    if (checkUsername) {
+      return res.status(400).json({ message: "Username already exists" });
+    }
+
+    if (checkEmail) {
+      return res.status(400).json({ message: "Email already exists" });
+    }
 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
@@ -22,18 +38,14 @@ const signup = async (req, res) => {
       profilePic: "",
     });
 
-    if (newUser) {
-      await newUser.save();
+    await newUser.save();
 
-      res.status(201).json({
-        _id: newUser._id,
-        username: newUser.username,
-        email: newUser.email,
-        profilePic: newUser.profilePic,
-      });
-    } else {
-      res.status(400).json({ message: "Invalid user data" });
-    }
+    res.status(201).json({
+      _id: newUser._id,
+      username: newUser.username,
+      email: newUser.email,
+      profilePic: newUser.profilePic,
+    });
   } catch (error) {
     console.log("Error in signup controller", error.message);
     res.status(500).json({ message: "Internal Server Error" });

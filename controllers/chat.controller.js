@@ -56,8 +56,10 @@ const addChat = async (req, res) => {
 
 const findUser = async (req, res) => {
   try {
-    const { username } = req.body;
+    let { username } = req.body;
     const userId = req.user._id;
+
+    username = username.toLowerCase();
 
     const getUser = await User.findOne({ username }).select("-password -__v");
     if(getUser && getUser._id.toString() === userId.toString()) {
