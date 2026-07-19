@@ -40,7 +40,11 @@ const sendMessage = async (req, res) => {
         if (!getChat) {
             return res.status(404).json({ error: "Chat not found" });
         }
-        getChat.lastMessage = newMessage.text;
+        if (newMessage.text.length > 0) {
+            getChat.lastMessage = newMessage.text;
+        } else if (newMessage.image) {
+            getChat.lastMessage = "Image";
+        }
         getChat.updatedAt = new Date();
         getChat.lastMessageTime = new Date();
         if (getChat.firstUserId.toString() === senderId.toString()) {
@@ -55,7 +59,7 @@ const sendMessage = async (req, res) => {
             io.to(receiverSocketId).emit("newMessage", newMessage);
             io.to(receiverSocketId).emit("chatUpdate", {
                 chatId: getChat._id,
-                lastMessage: newMessage.text,
+                lastMessage: getChat.lastMessage,
                 lastMessageTime: getChat.updatedAt,
                 firstUserUnseenMessagesCount: getChat.firstUserUnseenMessagesCount,
                 secondUserUnseenMessagesCount: getChat.secondUserUnseenMessagesCount,
