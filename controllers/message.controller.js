@@ -40,18 +40,16 @@ const sendMessage = async (req, res) => {
         if (!getChat) {
             return res.status(404).json({ error: "Chat not found" });
         }
-        if (newMessage.text.length > 0) {
-            getChat.lastMessage = newMessage.text;
-        } else if (newMessage.image) {
-            getChat.lastMessage = "Image";
-        }
+
+        getChat.lastMessageId = newMessage;
         getChat.updatedAt = new Date();
-        getChat.lastMessageTime = new Date();
+
         if (getChat.firstUserId.toString() === senderId.toString()) {
             getChat.secondUserUnseenMessagesCount += 1;
         } else if (getChat.secondUserId.toString() === senderId.toString()) {
             getChat.firstUserUnseenMessagesCount += 1;
         }
+
         await getChat.save();
 
         const receiverSocketId = getReceiverSocketId(receiverId);
@@ -59,8 +57,7 @@ const sendMessage = async (req, res) => {
             io.to(receiverSocketId).emit("newMessage", newMessage);
             io.to(receiverSocketId).emit("chatUpdate", {
                 chatId: getChat._id,
-                lastMessage: getChat.lastMessage,
-                lastMessageTime: getChat.updatedAt,
+                lastMessageId: newMessage,
                 firstUserUnseenMessagesCount: getChat.firstUserUnseenMessagesCount,
                 secondUserUnseenMessagesCount: getChat.secondUserUnseenMessagesCount,
             });
@@ -76,7 +73,6 @@ const sendMessage = async (req, res) => {
 const getMessages = async (req, res) => {
     try {
         const { chatId } = req.params;
-        console.log("Fetching messages for chatId:", chatId);
         const messages = await Message.find({ chatId }).populate("senderId", "-password -__v").populate("receiverId", "-password -__v").sort({ createdAt: 1 });
 
         if (!messages) {
@@ -93,29 +89,30 @@ const getMessages = async (req, res) => {
 const markMessagesAsRead = async (req, res) => {
     try {
         const { chatId, userId } = req.body;
-        console.log(chatId, userId);
 
-        const chat = await Chat.findById(chatId);
+        const chat = await Chat.findById(chatId).populate("firstUserId", "-password -__v").populate("secondUserId", "-password -__v").populate("lastMessageId");
         if (!chat) {
             return res.status(404).json({ message: "Chat not found" });
         }
 
-        if (chat.firstUserId.toString() === userId.toString()) {
+        if (chat.firstUserId._id.toString() === userId.toString()) {
             chat.firstUserUnseenMessagesCount = 0;
         }
 
-        if (chat.secondUserId.toString() === userId.toString()) {
+        if (chat.secondUserId._id.toString() === userId.toString()) {
             chat.secondUserUnseenMessagesCount = 0;
         }
 
         let receiverId;
-        if (chat.firstUserId.toString() === userId.toString()) {
-            receiverId = chat.secondUserId;
-        } else if (chat.secondUserId.toString() === userId.toString()) {
-            receiverId = chat.firstUserId;
+        if (chat.firstUserId._id.toString() === userId.toString()) {
+            receiverId = chat.secondUserId._id;
+        } else if (chat.secondUserId._id.toString() === userId.toString()) {
+            receiverId = chat.firstUserId._id;
         }
 
-        await Message.updateMany({ chatId, isRead: false }, { $set: { isRead: true } });
+        if (userId.toString() !== chat.firstUserId._id.toString()) {
+            await Message.updateMany({ chatId, isRead: false }, { $set: { isRead: true } });
+        }
 
         io.to(getReceiverSocketId(receiverId)).emit("messagesRead", { chatId });
 
@@ -128,4 +125,65 @@ const markMessagesAsRead = async (req, res) => {
     }
 };
 
-module.exports = { sendMessage, getMessages, markMessagesAsRead };
+const deleteMessage = async (req, res) => {
+    try {
+        const { messageId } = req.params;
+        const userId = req.user._id;
+
+        const message = await Message.findById(messageId);
+        if (!message) {
+            return res.status(404).json({ message: "Message not found" });
+        }
+
+        const getChat = await Chat.findById(message.chatId);
+        if (!getChat) {
+            return res.status(404).json({ message: "Chat not found" });
+        }
+
+        let receiverId;
+        if (getChat.firstUserId.toString() === userId.toString()) {
+            receiverId = getChat.secondUserId;
+        } else if (getChat.secondUserId.toString() === userId.toString()) {
+            receiverId = getChat.firstUserId;
+        }
+
+        let recieverId = message.receiverId;
+        if (message.isRead === false) {
+            if (getChat.firstUserId.toString() === recieverId.toString()) {
+                getChat.firstUserUnseenMessagesCount = Math.max(0, getChat.firstUserUnseenMessagesCount - 1);
+            } else if (getChat.secondUserId.toString() === recieverId.toString()) {
+                getChat.secondUserUnseenMessagesCount = Math.max(0, getChat.secondUserUnseenMessagesCount - 1);
+            }
+        }
+        getChat.updatedAt = new Date();
+
+        await Message.findByIdAndDelete(messageId);
+        const lastMessage = await Message.findOne({ chatId: getChat._id }).sort({ createdAt: -1 });
+        getChat.lastMessageId = lastMessage._id;
+
+        const receiverSocketId = getReceiverSocketId(receiverId);
+        if (receiverSocketId) {
+            io.to(receiverSocketId).emit("chatUpdate", {
+                chatId: getChat._id,
+                lastMessageId: lastMessage,
+                firstUserUnseenMessagesCount: getChat.firstUserUnseenMessagesCount,
+                secondUserUnseenMessagesCount: getChat.secondUserUnseenMessagesCount,
+            });
+        }
+        await getChat.save();
+
+        if (receiverSocketId) {
+            io.to(receiverSocketId).emit("delete-message", {
+                messageId: message._id,
+                chatId: getChat._id,
+            });
+        }
+
+        res.status(200).json({ messageId });
+    } catch (error) {
+        console.error("Error in deleting message:", error);
+        res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+module.exports = { sendMessage, getMessages, markMessagesAsRead, deleteMessage };

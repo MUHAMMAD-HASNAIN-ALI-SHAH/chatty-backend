@@ -88,9 +88,8 @@ const getChats = async (req, res) => {
       $or: [{ firstUserId: userId }, { secondUserId: userId }],
     }).populate("firstUserId", "username profilePic")
       .populate("secondUserId", "username profilePic")
+      .populate("lastMessageId")
       .sort({ updatedAt: -1 });
-
-    console.log("Fetched chats for userId:", userId, "Chats:", chats);
 
     res.status(200).json({ chats });
   } catch (error) {
