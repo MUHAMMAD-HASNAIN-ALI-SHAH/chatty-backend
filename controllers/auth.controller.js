@@ -7,6 +7,7 @@ const signup = async (req, res) => {
     let { username, email, password } = req.body;
 
     username = username.toLowerCase();
+    email = email.toLowerCase();
 
     const usernameRegex = /^[a-z][a-z0-9]{2,9}$/;
 
@@ -14,6 +15,12 @@ const signup = async (req, res) => {
       return res.status(400).json({
         message:
           "Username must start with a letter, contain only letters and numbers, and be 3-10 characters long.",
+      });
+    }
+
+    if(password.length < 8) {
+      return res.status(400).json({
+        message: "Password must be at least 8 characters long.",
       });
     }
 
@@ -54,7 +61,10 @@ const signup = async (req, res) => {
 
 const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    let { email, password } = req.body;
+
+    email = email.toLowerCase();
+
     const user = await User.findOne({ email });
 
     if (!user) {
