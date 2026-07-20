@@ -159,7 +159,11 @@ const deleteMessage = async (req, res) => {
 
         await Message.findByIdAndDelete(messageId);
         const lastMessage = await Message.findOne({ chatId: getChat._id }).sort({ createdAt: -1 });
-        getChat.lastMessageId = lastMessage._id;
+        if(!lastMessage) {
+            getChat.lastMessageId = null;
+        } else {
+            getChat.lastMessageId = lastMessage._id;
+        }
 
         const receiverSocketId = getReceiverSocketId(receiverId);
         if (receiverSocketId) {
