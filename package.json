@@ -20,6 +20,7 @@
   },
   "homepage": "https://github.com/MUHAMMAD-HASNAIN-ALI-SHAH/backend-chat-app#readme",
   "dependencies": {
+    "@upstash/redis": "^1.38.1",
     "bcryptjs": "^3.0.3",
     "cloudinary": "^2.10.0",
     "connect-mongo": "^5.1.0",

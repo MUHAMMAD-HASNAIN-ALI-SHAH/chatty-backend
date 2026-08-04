@@ -8,6 +8,7 @@ const CLIENT_URL = process.env.CLIENT_URL;
 const dotenv = require("dotenv");
 dotenv.config();
 const { app, server } = require("./config/socket.js");
+const redis = require("./config/redis.js");
 
 app.set("trust proxy", 1);
 
@@ -39,6 +40,44 @@ app.use(
 app.use("/api/v1/auth", require("./routes/auth.route.js"));
 app.use("/api/v2/chat", require("./routes/chat.route.js"));
 app.use("/api/v3/message", require("./routes/message.route.js"));
+app.get("/redis-data", async (req, res) => {
+  try {
+    const keys = await redis.keys("*");
+
+    const data = {};
+
+    for (const key of keys) {
+      data[key] = await redis.get(key);
+    }
+
+    redis.del("test");
+
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+});
+
+app.get("/redis-clear", async (req, res) => {
+  try {
+    const keys = await redis.keys("*");
+
+    if (keys.length > 0) {
+      await redis.del(...keys);
+    }
+
+    res.status(200).json({
+      message: "All Redis data deleted successfully",
+      deletedKeys: keys.length,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+});
 
 connectDB().then(() => {
     server.listen(PORT, () => {
