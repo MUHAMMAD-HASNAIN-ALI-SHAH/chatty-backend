@@ -2,6 +2,12 @@ const User = require("../models/user.model.js");
 const bcrypt = require("bcryptjs");
 const cloudinary = require("../config/cloudinary.js");
 const redis = require("../config/redis.js");
+const {
+  getUserFromRedis,
+  addUserOnRedis,
+  updateUserOnRedis,
+  deleteUserFromRedis,
+} = require("../redis/auth.redis.js");
 
 const signup = async (req, res) => {
   try {
@@ -82,20 +88,10 @@ const login = async (req, res) => {
     };
 
     // check if user is already in redis, if not add user to redis
-    const cachedUser = await redis.get(`user:${user._id}`);
+    const cachedUser = await getUserFromRedis(user._id);
+
     if (!cachedUser) {
-      await redis.set(
-        `user:${user._id}`,
-        {
-          _id: user._id.toString(),
-          username: user.username,
-          email: user.email,
-          profilePic: user.profilePic,
-        },
-        {
-          ex: 60 * 60 * 24,
-        }
-      );
+      addUserOnRedis(user);
     }
 
     res.status(200).json({
@@ -115,7 +111,7 @@ const logout = async (req, res) => {
     // remove user from redis
     const userId = req.session?.user?.userId;
     if (userId) {
-      await redis.del(`user:${userId}`);
+      deleteUserFromRedis(userId);
     }
 
     // destroy session
@@ -146,15 +142,7 @@ const updateProfile = async (req, res) => {
       { new: true }
     );
 
-    const user = redis.get(`user:${userId}`);
-    if (user) {
-      await redis.set(`user:${userId}`, {
-        _id: updatedUser._id.toString(),
-        username: updatedUser.username,
-        email: updatedUser.email,
-        profilePic: updatedUser.profilePic,
-      });
-    }
+    updateUserOnRedis(updatedUser);
 
     res.status(200).json(updatedUser);
   } catch (error) {
