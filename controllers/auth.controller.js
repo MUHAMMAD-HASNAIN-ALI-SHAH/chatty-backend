@@ -146,6 +146,16 @@ const updateProfile = async (req, res) => {
       { new: true }
     );
 
+    const user = redis.get(`user:${userId}`);
+    if (user) {
+      await redis.set(`user:${userId}`, {
+        _id: updatedUser._id.toString(),
+        username: updatedUser.username,
+        email: updatedUser.email,
+        profilePic: updatedUser.profilePic,
+      });
+    }
+
     res.status(200).json(updatedUser);
   } catch (error) {
     console.log("error in update profile:", error);
